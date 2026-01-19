@@ -6,7 +6,7 @@ import axios from "axios";
 import { toast } from "sonner";
 
 interface FileUploadProps {
-  onFileUploaded: (file: File) => void;
+  onFileUploaded: (file: File, fileId: string) => void;
   onFileRemoved: () => void;
   uploadedFile: File | null;
 }
@@ -51,7 +51,7 @@ export default function FileUpload({
           id: uploadToast,
           description: `Created ${response.data.chunks} chunks from your document.`,
         });
-        onFileUploaded(file);
+        onFileUploaded(file, response.data.fileId);
       }
     } catch (error) {
       console.error("Upload error:", error);
@@ -112,7 +112,9 @@ export default function FileUpload({
         <input
           type="file"
           accept=".pdf"
-          onChange={(e) => e.target.files && handleFileUpload(e.target.files[0])}
+          onChange={(e) =>
+            e.target.files && handleFileUpload(e.target.files[0])
+          }
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           id="file-upload"
           disabled={isUploading}

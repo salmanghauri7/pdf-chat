@@ -6,13 +6,16 @@ import Chat from "./Chat";
 
 export default function PaperChatClient() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [fileId, setFileId] = useState<string | null>(null);
 
-  const handleFileUploaded = (file: File) => {
+  const handleFileUploaded = (file: File, id: string) => {
     setUploadedFile(file);
+    setFileId(id);
   };
 
   const handleFileRemoved = () => {
     setUploadedFile(null);
+    setFileId(null);
   };
 
   return (
@@ -25,7 +28,7 @@ export default function PaperChatClient() {
       />
 
       {/* Chat Interface */}
-      <Chat isDocumentUploaded={!!uploadedFile} />
+      <Chat isDocumentUploaded={!!uploadedFile} fileId={fileId} />
     </>
   );
 }
