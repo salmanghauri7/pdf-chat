@@ -1,12 +1,13 @@
 import { config } from "@/config/config";
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
-export function createClient() {
+export function createServerClient() {
   const url = config.SUPABASE_URL;
   const anonKey = config.SUPABASE_ANON_KEY;
 
   if (!url || !anonKey) {
     throw new Error("Missing Supabase Environment Variables");
   }
-  return createBrowserClient(url, anonKey);
+
+  return createClient(url, anonKey);
 }

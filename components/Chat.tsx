@@ -72,15 +72,19 @@ export default function Chat({ isDocumentUploaded, fileId }: ChatProps) {
       let errorDescription = "Please try again later";
 
       if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError<{ error?: string; details?: string }>;
+        const axiosError = error as AxiosError<{
+          error?: string;
+          details?: string;
+        }>;
 
         if (axiosError.response) {
           // Server responded with error status
           errorMessage =
             axiosError.response.data?.error || "Failed to get response";
           errorDescription =
-            axiosError.response.data?.details || `Status: ${axiosError.response.status}`;
-          
+            axiosError.response.data?.details ||
+            `Status: ${axiosError.response.status}`;
+
           // Special handling for rate limits
           if (axiosError.response.status === 429) {
             errorMessage = "⏱️ Rate limit reached";

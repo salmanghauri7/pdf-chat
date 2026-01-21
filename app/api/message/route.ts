@@ -1,3 +1,4 @@
+import { config } from "@/config/config";
 import { createClient } from "@/utils/supabase/client";
 import { SupabaseVectorStore } from "@langchain/community/vectorstores/supabase";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     // Initialize embeddings
     const embeddings = new GoogleGenerativeAIEmbeddings({
-      apiKey: process.env.NEXT_PUBLIC_GEMINI_KEY,
+      apiKey: config.GEMINI_API_KEY,
       modelName: "text-embedding-004",
     });
 
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     // Initialize model
     const model = new ChatGoogleGenerativeAI({
-      apiKey: process.env.NEXT_PUBLIC_GEMINI_KEY,
+      apiKey: config.GEMINI_API_KEY,
       model: "gemini-2.5-flash-lite",
       temperature: 0.3,
     });

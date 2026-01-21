@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { config } from "@/config/config";
 import { WebPDFLoader } from "@langchain/community/document_loaders/web/pdf";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { createClient } from "@/utils/supabase/client";
 import { SupabaseVectorStore } from "@langchain/community/vectorstores/supabase";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { TaskType } from "@google/generative-ai";
+import { inngest } from "@/inngest/client";
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,20 +30,33 @@ export async function POST(req: NextRequest) {
 
     const docs = await splitter.splitDocuments(rawDocs);
     const fileId = crypto.randomUUID();
+    const fileSizeInBytes = file.size;
+
+    // Optional: Convert to Megabytes for logging or metadata
+    const fileSizeInMB = (fileSizeInBytes / (1024 * 1024)).toFixed(2);
 
     const docsWithMetadata = docs.map((doc) => ({
       ...doc,
       metadata: {
         ...doc.metadata,
-        fileId: fileId,
       },
     }));
+
+    await inngest.send({
+      name: "pdf.uploaded",
+      data: {
+        fileId: fileId,
+        fileSize: fileSizeInMB,
+        fileName: file.name,
+        fullText: rawDocs.map((doc) => doc.pageContent).join("\n\n"),
+      },
+    });
 
     // supabase client here
     const client = createClient();
 
     const embeddings = new GoogleGenerativeAIEmbeddings({
-      apiKey: process.env.NEXT_PUBLIC_GEMINI_KEY,
+      apiKey: config.GEMINI_API_KEY,
       modelName: "text-embedding-004", // Most efficient for RAG in 2026
       taskType: TaskType.RETRIEVAL_DOCUMENT,
     });

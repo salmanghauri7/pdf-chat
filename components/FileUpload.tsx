@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Upload, FileText, X, Loader2 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
+import { createClient } from "@/utils/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface FileUploadProps {
   onFileUploaded: (file: File, fileId: string) => void;
@@ -18,6 +20,73 @@ export default function FileUpload({
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const summaryToastRef = useRef<string | number | null>(null);
+
+  useEffect(() => {
+    // Cleanup function to unsubscribe when component unmounts
+    return () => {
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+      }
+    };
+  }, []);
+
+  const subscribeToSummary = (
+    fileId: string,
+    summaryToastId: string | number,
+  ) => {
+    const supabase = createClient();
+
+    // Unsubscribe from previous channel if exists
+    if (channelRef.current) {
+      channelRef.current.unsubscribe();
+    }
+
+    summaryToastRef.current = summaryToastId;
+
+    // Subscribe to changes on the files table for this specific fileId
+    const channel = supabase
+      .channel(`file-${fileId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Listen to all events (INSERT and UPDATE)
+          schema: "public",
+          table: "files",
+          filter: `id=eq.${fileId}`,
+        },
+        (payload) => {
+          if (payload.new?.status === "completed") {
+            toast.success("Summary generated!", {
+              id: summaryToastId,
+              description: "Your PDF has been fully processed and summarized.",
+            });
+
+            // Unsubscribe after completion
+            channel.unsubscribe();
+            channelRef.current = null;
+          }
+        },
+      )
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR") {
+          console.error("❌ Channel error:", err);
+          toast.error("Connection error", {
+            id: summaryToastId,
+            description: "Failed to connect to real-time updates. Please refresh.",
+          });
+        } else if (status === "TIMED_OUT") {
+          console.error("⏱️ Subscription timed out");
+          toast.error("Connection timeout", {
+            id: summaryToastId,
+            description: "Real-time connection timed out. Please refresh.",
+          });
+        }
+      });
+
+    channelRef.current = channel;
+  };
 
   const handleFileUpload = async (file: File) => {
     if (!file) return;
@@ -52,6 +121,14 @@ export default function FileUpload({
           description: `Created ${response.data.chunks} chunks from your document.`,
         });
         onFileUploaded(file, response.data.fileId);
+
+        // Start showing summarization progress
+        const summaryToast = toast.loading("Generating summary...", {
+          description: "AI is analyzing and summarizing your PDF.",
+        });
+
+        // Subscribe to realtime updates for summary completion
+        subscribeToSummary(response.data.fileId, summaryToast);
       }
     } catch (error) {
       console.error("Upload error:", error);
@@ -91,6 +168,19 @@ export default function FileUpload({
   const handleRemoveFile = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Unsubscribe from realtime channel
+    if (channelRef.current) {
+      channelRef.current.unsubscribe();
+      channelRef.current = null;
+    }
+
+    // Dismiss any loading toasts
+    if (summaryToastRef.current) {
+      toast.dismiss(summaryToastRef.current);
+      summaryToastRef.current = null;
+    }
+
     onFileRemoved();
     toast.info("File removed", {
       description: "You can upload a new document.",
