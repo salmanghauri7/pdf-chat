@@ -57,24 +57,43 @@ export default function FileUpload({
           filter: `id=eq.${fileId}`,
         },
         (payload) => {
-          if (payload.new?.status === "completed") {
-            toast.success("Summary generated!", {
-              id: summaryToastId,
-              description: "Your PDF has been fully processed and summarized.",
-            });
+          console.log("📡 Realtime payload received:", payload);
+          console.log("Status:", payload.new?.status);
 
-            // Unsubscribe after completion
-            channel.unsubscribe();
-            channelRef.current = null;
+          if (
+            payload.new &&
+            typeof payload.new === "object" &&
+            "status" in payload.new
+          ) {
+            const status = payload.new.status;
+            console.log(`File ${fileId} status: ${status}`);
+
+            if (status === "completed") {
+              toast.success("Summary generated!", {
+                id: summaryToastId,
+                description:
+                  "Your PDF has been fully processed and summarized.",
+              });
+
+              // Unsubscribe after completion
+              channel.unsubscribe();
+              channelRef.current = null;
+              summaryToastRef.current = null;
+            }
           }
         },
       )
       .subscribe((status, err) => {
-        if (status === "CHANNEL_ERROR") {
+        console.log(`📡 Subscription status: ${status}`, err);
+
+        if (status === "SUBSCRIBED") {
+          console.log(`✅ Successfully subscribed to file-${fileId}`);
+        } else if (status === "CHANNEL_ERROR") {
           console.error("❌ Channel error:", err);
           toast.error("Connection error", {
             id: summaryToastId,
-            description: "Failed to connect to real-time updates. Please refresh.",
+            description:
+              "Failed to connect to real-time updates. Please refresh.",
           });
         } else if (status === "TIMED_OUT") {
           console.error("⏱️ Subscription timed out");

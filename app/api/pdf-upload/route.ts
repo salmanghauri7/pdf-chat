@@ -39,9 +39,66 @@ export async function POST(req: NextRequest) {
       ...doc,
       metadata: {
         ...doc.metadata,
+        file_id: fileId,
       },
     }));
 
+    // supabase client here
+    const client = createClient();
+
+    // 1. INSERT file record FIRST with status='processing'
+    const { error: fileInsertError } = await client.from("files").insert({
+      id: fileId,
+      file_name: file.name,
+      file_size: fileSizeInMB,
+      summary: null,
+      status: "processing",
+    });
+
+    if (fileInsertError) {
+      console.error("Failed to create file record:", fileInsertError);
+      throw fileInsertError;
+    }
+
+    console.log("✅ Created file record in API route:", fileId);
+
+    const embeddings = new GoogleGenerativeAIEmbeddings({
+      apiKey: config.GEMINI_API_KEY,
+      modelName: "text-embedding-004", // Most efficient for RAG in 2026
+      taskType: TaskType.RETRIEVAL_DOCUMENT,
+    });
+
+    const vectorStore = await SupabaseVectorStore.fromDocuments(
+      docsWithMetadata,
+      embeddings,
+      {
+        client,
+        tableName: "documents",
+        queryName: "match_documents",
+      },
+    );
+
+    // Update all inserted documents with the file_id column
+    const documentIds = docsWithMetadata.map(() => crypto.randomUUID());
+
+    // Get all documents that were just inserted (they have file_id in metadata)
+    const { data: insertedDocs, error: fetchError } = await client
+      .from("documents")
+      .select("id")
+      .contains("metadata", { file_id: fileId });
+
+    if (!fetchError && insertedDocs) {
+      // Update the file_id column for all these documents
+      await client
+        .from("documents")
+        .update({ file_id: fileId })
+        .in(
+          "id",
+          insertedDocs.map((doc) => doc.id),
+        );
+    }
+
+    // 2. AFTER file record exists, trigger Inngest to generate summary
     await inngest.send({
       name: "pdf.uploaded",
       data: {
@@ -52,24 +109,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // supabase client here
-    const client = createClient();
-
-    const embeddings = new GoogleGenerativeAIEmbeddings({
-      apiKey: config.GEMINI_API_KEY,
-      modelName: "text-embedding-004", // Most efficient for RAG in 2026
-      taskType: TaskType.RETRIEVAL_DOCUMENT,
-    });
-
-    await SupabaseVectorStore.fromDocuments(docsWithMetadata, embeddings, {
-      client,
-      tableName: "documents",
-      queryName: "match_documents",
-    });
+    console.log("✅ Triggered Inngest summary generation for:", fileId);
 
     return NextResponse.json(
       {
-        message: "Ingestion complete",
+        message: "Ingestion  complete",
         chunks: docs.length,
         fileId,
       },

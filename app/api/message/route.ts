@@ -20,7 +20,66 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const documentWorkflowKeywords = [
+      // Summarization
+      "summarize this pdf",
+      "summarize this document",
+      "summarize this file",
+      "summarize this paper",
+      "give me an overview of the document",
+      "tl;dr of this pdf",
+      "what are the key takeaways from this paper",
+      "summarize the main points of the text",
+      "briefly explain this attachment",
+      "explain this pdf",
+
+      // Structural Analysis
+      "break down this report",
+      "outline the contents of this document",
+      "analyze the findings in this file",
+      "extract the methodology from this paper",
+      "what is the conclusion of this document",
+
+      // Extraction
+      "find the data points in this pdf",
+      "list the references in this document",
+      "what are the core arguments in this file",
+      "identify the main themes of this text",
+      "who are the authors of this document",
+    ];
+
     const client = createClient();
+
+    // Check if message contains any document workflow keywords
+    const lowerMessage = message.toLowerCase();
+    const containsKeyword = documentWorkflowKeywords.some((keyword) =>
+      lowerMessage.includes(keyword.toLowerCase()),
+    );
+
+    // If keyword detected, return summary from files table
+    if (containsKeyword) {
+      const { data: fileData, error: fileError } = await client
+        .from("files")
+        .select("summary")
+        .eq("id", fileId)
+        .single();
+
+      if (fileError) {
+        return NextResponse.json(
+          { error: "Failed to fetch file summary", details: fileError.message },
+          { status: 500 },
+        );
+      }
+
+      if (!fileData || !fileData.summary) {
+        return NextResponse.json(
+          { error: "Summary not available for this file" },
+          { status: 404 },
+        );
+      }
+
+      return NextResponse.json({ answer: fileData.summary });
+    }
 
     // Initialize embeddings
     const embeddings = new GoogleGenerativeAIEmbeddings({

@@ -10,32 +10,10 @@ export const generateSummaryPdfStoreInDatabase = inngest.createFunction(
   },
   { event: "pdf.uploaded" },
   async ({ event, step }) => {
-    const { fileId, fileName, fileSize, fullText } = event.data;
+    const { fileId, fullText } = event.data;
 
-    // Initial status: processing
-    await step.run("create-file-record", async () => {
-      try {
-        const client = createServerClient();
-
-        const { error } = await client.from("files").insert({
-          id: fileId,
-          file_name: fileName,
-          file_size: fileSize,
-          summary: null,
-          status: "processing",
-        });
-
-        if (error) {
-          console.error("Supabase insert error:", error);
-          throw error;
-        }
-
-        console.log("✅ Created file record with processing status:", fileId);
-      } catch (error) {
-        console.error("Error creating file record:", error);
-        throw error;
-      }
-    });
+    // File record already exists with status='processing' (created in API route)
+    // We only need to generate summary and UPDATE the record
 
     const summary = await step.run("call-gemini-for-summary", async () => {
       try {
@@ -76,7 +54,8 @@ export const generateSummaryPdfStoreInDatabase = inngest.createFunction(
             summary: summary,
             status: "completed",
           })
-          .eq("id", fileId);
+          .eq("id", fileId)
+          .select();
 
         if (error) {
           console.error("Supabase update error:", error);
