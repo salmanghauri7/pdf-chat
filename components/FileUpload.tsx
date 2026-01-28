@@ -47,7 +47,7 @@ export default function FileUpload({
 
     // Subscribe to changes on the files table for this specific fileId
     const channel = supabase
-      .channel(`file-${fileId}`)
+      .channel(`${fileId}`)
       .on(
         "postgres_changes",
         {
@@ -58,7 +58,6 @@ export default function FileUpload({
         },
         (payload) => {
           console.log("📡 Realtime payload received:", payload);
-          console.log("Status:", payload.new?.status);
 
           if (
             payload.new &&
@@ -140,6 +139,7 @@ export default function FileUpload({
           description: `Created ${response.data.chunks} chunks from your document.`,
         });
         onFileUploaded(file, response.data.fileId);
+        console.log(response, "response from the api");
 
         // Start showing summarization progress
         const summaryToast = toast.loading("Generating summary...", {

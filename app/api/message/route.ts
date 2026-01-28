@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ answer: fileData.summary });
     }
 
+    
     // Initialize embeddings
     const embeddings = new GoogleGenerativeAIEmbeddings({
       apiKey: config.GEMINI_API_KEY,
