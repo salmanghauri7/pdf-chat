@@ -6,5 +6,4 @@ import { config } from "@/config/config";
 export const { POST, PUT, GET } = serve({
   client: inngest,
   functions: [generateSummaryPdfStoreInDatabase],
-  signingKey: config.INNGEST_SIGNING_KEY,
 });

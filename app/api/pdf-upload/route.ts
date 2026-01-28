@@ -60,13 +60,11 @@ export async function POST(req: NextRequest) {
       throw fileInsertError;
     }
 
-    console.log("✅ Created file record in API route:", fileId);
-
     const embeddings = new GoogleGenerativeAIEmbeddings({
       apiKey: config.GEMINI_API_KEY,
-      modelName: "text-embedding-004", // Most efficient for RAG in 2026
+      model: "gemini-embedding-001",
       taskType: TaskType.RETRIEVAL_DOCUMENT,
-    });
+    }); 
 
     const vectorStore = await SupabaseVectorStore.fromDocuments(
       docsWithMetadata,
@@ -109,8 +107,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log("✅ Triggered Inngest summary generation for:", fileId);
-
     return NextResponse.json(
       {
         message: "Ingestion  complete",
@@ -120,7 +116,7 @@ export async function POST(req: NextRequest) {
       { status: 200 },
     );
   } catch (error) {
-    console.error("❌ Ingestion Error:", error);
+    console.error("PDF upload error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Ingestion failed" },
       { status: 500 },
